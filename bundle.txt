@@ -71,8 +71,8 @@ android {
         applicationId 'art.aasaastv.sms'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '1.1'
+        versionCode 3
+        versionName '1.2'
     }
 
     buildTypes {
@@ -447,6 +447,90 @@ public class Forwarder {
         return j < 0 ? "" : s.substring(i + a.length(), j);
     }
 }
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/InboxScanner.java
+package art.aasaastv.sms;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.os.PowerManager;
+import android.provider.Telephony;
+
+/**
+ * Reads new messages straight from the phone's SMS inbox.
+ * Phones with Transsion "Hiber" (Infinix, Tecno, itel) drop the SMS broadcast for most apps,
+ * but the inbox itself always gets the message, and a change there wakes this app.
+ */
+public class InboxScanner {
+
+    private static final Object LOCK = new Object();
+
+    public static void scan(Context c) {
+        Context app = c.getApplicationContext();
+        PowerManager pm = (PowerManager) app.getSystemService(Context.POWER_SERVICE);
+        PowerManager.WakeLock wl = null;
+        try {
+            if (pm != null) {
+                wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "aasaas:scan");
+                wl.acquire(60 * 1000L);
+            }
+            boolean added;
+            synchronized (LOCK) {
+                added = readNew(app);
+            }
+            if (added) {
+                SendJob.scheduleNow(app);
+            }
+            Forwarder.sendPending(app);
+        } catch (Exception ignored) {
+        } finally {
+            if (wl != null && wl.isHeld()) {
+                wl.release();
+            }
+        }
+    }
+
+    private static boolean readNew(Context app) {
+        SharedPreferences p = Forwarder.prefs(app);
+        long now = System.currentTimeMillis();
+        long since = p.getLong("last_scan", 0);
+        if (since == 0) {
+            since = now - 10 * 60 * 1000L; // first run: only the last 10 minutes
+        }
+        long max = since;
+        boolean added = false;
+        Cursor cur = null;
+        try {
+            cur = app.getContentResolver().query(Telephony.Sms.Inbox.CONTENT_URI,
+                    new String[]{Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE},
+                    Telephony.Sms.DATE + " > ?", new String[]{String.valueOf(since)}, Telephony.Sms.DATE + " ASC");
+            while (cur != null && cur.moveToNext()) {
+                String from = cur.getString(0);
+                String body = cur.getString(1);
+                long ts = cur.getLong(2);
+                if (ts > max) {
+                    max = ts;
+                }
+                if (body == null || !Forwarder.wanted(app, from)) {
+                    continue;
+                }
+                if (Db.get(app).add(from == null ? "" : from, body, ts)) {
+                    added = true;
+                }
+            }
+        } finally {
+            if (cur != null) {
+                cur.close();
+            }
+        }
+        SharedPreferences.Editor e = p.edit().putLong("last_scan", max);
+        if (added) {
+            e.putLong("last_rx", now);
+        }
+        e.apply();
+        return added;
+    }
+}
 @@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/KeepService.java
 package art.aasaastv.sms;
 
@@ -458,6 +542,9 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.os.HandlerThread;
 import android.provider.Telephony;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
@@ -474,12 +561,14 @@ public class KeepService extends Service {
     private static final String CH = "keep";
     private final Handler handler = new Handler(Looper.getMainLooper());
     private SmsReceiver live;
+    private ContentObserver inbox;
+    private HandlerThread inboxThread;
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
             final Context app = getApplicationContext();
-            new Thread(() -> Forwarder.sendPending(app)).start();
-            handler.postDelayed(this, 5 * 60 * 1000L);
+            new Thread(() -> InboxScanner.scan(app)).start();
+            handler.postDelayed(this, 2 * 60 * 1000L);
         }
     };
 
@@ -541,6 +630,24 @@ public class KeepService extends Service {
                 live = null;
             }
         }
+        // Main path on Infinix/Tecno: watch the SMS inbox itself.
+        if (inbox == null) {
+            inboxThread = new HandlerThread("aasaas-inbox");
+            inboxThread.start();
+            final Context app = getApplicationContext();
+            inbox = new ContentObserver(new Handler(inboxThread.getLooper())) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    InboxScanner.scan(app);
+                }
+            };
+            try {
+                getContentResolver().registerContentObserver(Uri.parse("content://sms"), true, inbox);
+            } catch (Exception e) {
+                inbox = null;
+            }
+            new Thread(() -> InboxScanner.scan(app)).start();
+        }
         handler.removeCallbacks(tick);
         handler.postDelayed(tick, 60 * 1000L);
         return START_STICKY;
@@ -549,6 +656,17 @@ public class KeepService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacks(tick);
+        if (inbox != null) {
+            try {
+                getContentResolver().unregisterContentObserver(inbox);
+            } catch (Exception ignored) {
+            }
+            inbox = null;
+        }
+        if (inboxThread != null) {
+            inboxThread.quitSafely();
+            inboxThread = null;
+        }
         if (live != null) {
             try {
                 unregisterReceiver(live);
@@ -638,6 +756,14 @@ public class MainActivity extends Activity {
         super.onCreate(b);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        // Settings can be passed by the installer script: --es set_url ... --es set_senders ...
+        Intent in = getIntent();
+        if (in != null && in.getStringExtra("set_url") != null) {
+            Forwarder.prefs(this).edit().putString("url", in.getStringExtra("set_url").trim()).apply();
+        }
+        if (in != null && in.getStringExtra("set_senders") != null) {
+            Forwarder.prefs(this).edit().putString("senders", in.getStringExtra("set_senders").trim()).apply();
+        }
         build();
         askPermissions();
         SendJob.schedulePeriodic(this);
@@ -1104,6 +1230,7 @@ public class SendJob extends JobService {
     public boolean onStartJob(final JobParameters params) {
         final Context app = getApplicationContext();
         new Thread(() -> {
+            InboxScanner.scan(app);
             int left = Forwarder.sendPending(app);
             // Ask Android to run again (with back-off) if some messages are still waiting.
             jobFinished(params, left > 0 && params.getJobId() == NOW_ID && Forwarder.ready(app));
