@@ -1,0 +1,1175 @@
+@@@FILE AasaasSMS/AKHRI-MARKA-HORE.txt
+AASAAS SMS — app-kaaga gaarka ah ee SMS-ka lacagta u gudbiya websaydka
+=====================================================================
+
+WAXA UU QABTO
+- SMS kasta oo yimaada (192, eDahab, JEEB, Somnet…) isla markiiba wuxuu u dirayaa websaydka.
+- Haddii internet jirin ama websaydku xiran yahay, wuu kaydinayaa oo mar kale ayuu isku dayayaa ilaa uu gaaro.
+- Fariin kasta waxaad ku aragtaa app-ka: ✅ La diray · ⏳ Sugaya · ❌ Khalad.
+- "📥 Soo dir lacagihii hore": lacagaha 3-dii maalmood ee la soo dhaafay mar kale ayuu u dirayaa (websaydku kuwa uu hore u haystay ma xisaabiyo mar labaad).
+- Ogeysiis joogto ah ayuu leeyahay si Infinix uusan u xirin.
+- Fariimaha shakhsiga ah ee hore lama diro — kaliya kuwa lacagta ("heshay").
+- SMS-ka caadiga ah sidiisa ayuu u imanayaa app-ka fariimaha; app-kani kaliya wuu akhriyaa oo gudbiyaa.
+
+SIDA LOO RAKIBO (Android Studio + USB)
+Sababta USB: Play Protect wuu xannibaa apps-ka SMS ee internetka laga soo dejiyo,
+laakiin ma xannibo app aad adigu kombiyuutarkaaga ku dhistay oo USB ku rakibtay.
+
+1. Faylka zip-ka ka saar (Extract) kombiyuutarka.
+2. Android Studio → File → Open → dooro galka "AasaasSMS" → OK.
+   Sug inta "Gradle sync" dhammaanayo (markii ugu horreysay internet ayuu u baahan yahay).
+   Haddii uu ku weydiiyo "Upgrade" ama "Trust project", taabo Trust / OK.
+3. Taleefanka: Settings → About phone → taabo "Build number" 7 jeer → Developer options →
+   shid "USB debugging". Ku xir USB, taleefankana ka oggolow "Allow USB debugging".
+4. Android Studio kor: dooro taleefankaaga → taabo ▶ Run.
+   App-ka "Aasaas SMS" wuu ku rakibmayaa oo furmayaa.
+
+MARKA APP-KU FURMO
+1. Oggolow: SMS iyo Notifications.
+2. Websaydka → Lacagaha EVC → koobi link-ga (sanduuqa MacroDroid, wuxuu leeyahay key=…).
+   App-ka → "📋 Dheji" → "💾 Kaydi".
+3. Taabo "🔎 Tijaabi link-ga" → waa inuu yiraahdo ✅ Link-gu wuu shaqaynayaa.
+4. Taabo "🔋 Battery" → Allow. Sidoo kale: App info → Battery → Unrestricted, Auto-start → ON.
+5. Taabo "📥 Soo dir lacagihii hore" si lacagihii seegay ay u gaaraan websaydka.
+
+MacroDroid: waad dami kartaa, ama ha ahaado kaab. Websaydku lacag laba jeer ma xisaabinayo.
+@@@FILE AasaasSMS/build.gradle
+plugins {
+    id 'com.android.application' version '8.7.3' apply false
+}
+@@@FILE AasaasSMS/gradle.properties
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=false
+android.nonTransitiveRClass=true
+@@@FILE AasaasSMS/settings.gradle
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "AasaasSMS"
+include ':app'
+@@@FILE AasaasSMS/app/build.gradle
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'art.aasaastv.sms'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'art.aasaastv.sms'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+// No libraries needed: the app uses only Android's own classes.
+dependencies {
+}
+@@@FILE AasaasSMS/app/src/main/AndroidManifest.xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+        android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Every incoming SMS, even when the app is closed. -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".SendJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service
+            android:name=".KeepService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Forwards payment SMS to the owner's own website as they arrive" />
+        </service>
+    </application>
+</manifest>
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/BootReceiver.java
+package art.aasaastv.sms;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+
+/** After the phone restarts (or the app is updated): start again and send anything that is waiting. */
+public class BootReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        Context app = context.getApplicationContext();
+        SendJob.schedulePeriodic(app);
+        SendJob.scheduleNow(app);
+        KeepService.start(app);
+    }
+}
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/Db.java
+package art.aasaastv.sms;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/** Local store of every SMS the phone received, with its sending status. */
+public class Db extends SQLiteOpenHelper {
+
+    public static final int PENDING = 0;
+    public static final int SENT = 1;
+    public static final int FAILED = 2;
+
+    public static class Msg {
+        public long id;
+        public String sender;
+        public String body;
+        public long ts;
+        public int status;
+        public String info;
+        public int tries;
+    }
+
+    private static Db inst;
+
+    public static synchronized Db get(Context c) {
+        if (inst == null) {
+            inst = new Db(c.getApplicationContext());
+        }
+        return inst;
+    }
+
+    private Db(Context c) {
+        super(c, "aasaas_sms.db", null, 1);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE msgs (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, body TEXT, ts INTEGER, "
+                + "status INTEGER DEFAULT 0, info TEXT DEFAULT '', tries INTEGER DEFAULT 0, UNIQUE(sender, body, ts))");
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldV, int newV) {
+    }
+
+    /** Adds a message. Returns false if the same message (sender, text, time) is already stored. */
+    public synchronized boolean add(String sender, String body, long ts) {
+        ContentValues v = new ContentValues();
+        v.put("sender", sender == null ? "" : sender);
+        v.put("body", body == null ? "" : body);
+        v.put("ts", ts);
+        v.put("status", PENDING);
+        return getWritableDatabase().insertWithOnConflict("msgs", null, v, SQLiteDatabase.CONFLICT_IGNORE) != -1;
+    }
+
+    public synchronized void mark(long id, int status, String info, boolean countTry) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.execSQL("UPDATE msgs SET status = ?, info = ?, tries = tries + ? WHERE id = ?",
+                new Object[]{status, info == null ? "" : info, countTry ? 1 : 0, id});
+    }
+
+    public synchronized void retry(long id) {
+        getWritableDatabase().execSQL("UPDATE msgs SET status = 0, tries = 0, info = '' WHERE id = ?", new Object[]{id});
+    }
+
+    public synchronized void retryAllFailed() {
+        getWritableDatabase().execSQL("UPDATE msgs SET status = 0, tries = 0 WHERE status = 2");
+    }
+
+    /** Messages that still need to reach the website (oldest first). */
+    public synchronized List<Msg> unsent(int limit) {
+        return query("status != 1 AND tries < 60", "id ASC", limit);
+    }
+
+    public synchronized List<Msg> recent(int limit) {
+        return query(null, "ts DESC, id DESC", limit);
+    }
+
+    public synchronized int count(int status) {
+        Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM msgs WHERE status = ?", new String[]{String.valueOf(status)});
+        try {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        } finally {
+            c.close();
+        }
+    }
+
+    private List<Msg> query(String where, String order, int limit) {
+        List<Msg> out = new ArrayList<>();
+        Cursor c = getReadableDatabase().query("msgs", null, where, null, null, null, order, String.valueOf(limit));
+        try {
+            while (c.moveToNext()) {
+                Msg m = new Msg();
+                m.id = c.getLong(c.getColumnIndexOrThrow("id"));
+                m.sender = c.getString(c.getColumnIndexOrThrow("sender"));
+                m.body = c.getString(c.getColumnIndexOrThrow("body"));
+                m.ts = c.getLong(c.getColumnIndexOrThrow("ts"));
+                m.status = c.getInt(c.getColumnIndexOrThrow("status"));
+                m.info = c.getString(c.getColumnIndexOrThrow("info"));
+                m.tries = c.getInt(c.getColumnIndexOrThrow("tries"));
+                out.add(m);
+            }
+        } finally {
+            c.close();
+        }
+        return out;
+    }
+}
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/Forwarder.java
+package art.aasaastv.sms;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+/** Sends stored SMS to the website: POST text/plain, the same request the plugin expects from MacroDroid. */
+public class Forwarder {
+
+    public static final String DEFAULT_URL = "https://aasaastv.art/wp-json/aasaas-pay/v1/sms?key=";
+
+    private static final Object LOCK = new Object();
+
+    public static SharedPreferences prefs(Context c) {
+        return c.getSharedPreferences("aasaas", Context.MODE_PRIVATE);
+    }
+
+    public static String url(Context c) {
+        return prefs(c).getString("url", "").trim();
+    }
+
+    /** True when the link has a key after "key=". */
+    public static boolean ready(Context c) {
+        String u = url(c);
+        int k = u.indexOf("key=");
+        return u.startsWith("https://") && k > 0 && k + 4 < u.length() && u.charAt(k + 4) != '&';
+    }
+
+    /** Sender filter: empty = every SMS. Otherwise comma separated, e.g. "192, eDahab". */
+    public static boolean wanted(Context c, String sender) {
+        String f = prefs(c).getString("senders", "").trim();
+        if (f.isEmpty()) {
+            return true;
+        }
+        String s = sender == null ? "" : sender.toLowerCase();
+        for (String part : f.split(",")) {
+            String p = part.trim().toLowerCase();
+            if (!p.isEmpty() && (s.equals(p) || s.endsWith(p))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Sends every message that has not reached the website yet. Returns how many are still waiting. */
+    public static int sendPending(Context c) {
+        synchronized (LOCK) {
+            Db db = Db.get(c);
+            if (!ready(c)) {
+                return db.unsent(500).size();
+            }
+            List<Db.Msg> list = db.unsent(50);
+            for (Db.Msg m : list) {
+                Result r = post(c, m.sender, m.body);
+                if (r.ok) {
+                    db.mark(m.id, Db.SENT, r.info, true);
+                } else {
+                    db.mark(m.id, r.permanent ? Db.FAILED : Db.PENDING, r.info, true);
+                    if (r.offline) {
+                        break; // no internet: stop and try again later
+                    }
+                }
+            }
+            return db.unsent(500).size();
+        }
+    }
+
+    public static class Result {
+        public boolean ok;
+        public boolean permanent;
+        public boolean offline;
+        public String info = "";
+    }
+
+    public static Result post(Context c, String sender, String body) {
+        Result r = new Result();
+        HttpURLConnection con = null;
+        try {
+            String from = URLEncoder.encode(sender == null ? "" : sender, "UTF-8");
+            String u = url(c);
+            if (u.contains("{sms_number}")) {
+                u = u.replace("{sms_number}", from);
+            } else if (!u.contains("from=")) {
+                u = u + (u.contains("?") ? "&" : "?") + "from=" + from;
+            }
+            byte[] data = (body == null ? "" : body).getBytes(StandardCharsets.UTF_8);
+            con = (HttpURLConnection) new URL(u).openConnection();
+            con.setConnectTimeout(15000);
+            con.setReadTimeout(20000);
+            con.setRequestMethod("POST");
+            con.setDoOutput(true);
+            con.setRequestProperty("Content-Type", "text/plain; charset=utf-8");
+            con.setRequestProperty("User-Agent", "AasaasSMS/1.0");
+            con.setFixedLengthStreamingMode(data.length);
+            OutputStream os = con.getOutputStream();
+            os.write(data);
+            os.close();
+            int code = con.getResponseCode();
+            String resp = read(code >= 400 ? con.getErrorStream() : con.getInputStream());
+            String status = between(resp, "\"status\":\"", "\"");
+            if (code == 200 && resp.contains("\"ok\":true")) {
+                r.ok = true;
+                r.info = status.isEmpty() ? "200" : status;
+            } else {
+                r.info = code + (status.isEmpty() ? "" : " " + status);
+                // 403 = wrong key, 404 = plugin off / wrong link: retrying the same thing will not help.
+                r.permanent = code == 403 || code == 404 || code == 400;
+            }
+        } catch (java.net.UnknownHostException | java.net.ConnectException | java.net.SocketTimeoutException e) {
+            r.offline = true;
+            r.info = "internet ma jiro";
+        } catch (Exception e) {
+            r.info = e.getClass().getSimpleName();
+        } finally {
+            if (con != null) {
+                con.disconnect();
+            }
+        }
+        return r;
+    }
+
+    private static String read(InputStream in) {
+        if (in == null) {
+            return "";
+        }
+        try {
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            byte[] buf = new byte[2048];
+            int n;
+            while ((n = in.read(buf)) > 0 && b.size() < 8192) {
+                b.write(buf, 0, n);
+            }
+            in.close();
+            return b.toString("UTF-8");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static String between(String s, String a, String b) {
+        int i = s.indexOf(a);
+        if (i < 0) {
+            return "";
+        }
+        int j = s.indexOf(b, i + a.length());
+        return j < 0 ? "" : s.substring(i + a.length(), j);
+    }
+}
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/KeepService.java
+package art.aasaastv.sms;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.os.Build;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+
+/**
+ * A small always-on notification. It tells phones like Infinix/Tecno not to kill the app,
+ * so SMS keep reaching the website even at night.
+ */
+public class KeepService extends Service {
+
+    private static final String CH = "keep";
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable tick = new Runnable() {
+        @Override
+        public void run() {
+            final Context app = getApplicationContext();
+            new Thread(() -> Forwarder.sendPending(app)).start();
+            handler.postDelayed(this, 5 * 60 * 1000L);
+        }
+    };
+
+    public static void start(Context c) {
+        if (!Forwarder.prefs(c).getBoolean("keep", true)) {
+            return;
+        }
+        try {
+            c.startForegroundService(new Intent(c, KeepService.class));
+        } catch (Exception ignored) {
+            // Android may refuse when started from the background; the SMS receiver still works.
+        }
+    }
+
+    public static void stop(Context c) {
+        c.stopService(new Intent(c, KeepService.class));
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (nm != null && nm.getNotificationChannel(CH) == null) {
+            NotificationChannel ch = new NotificationChannel(CH, "Aasaas SMS shaqaynaya", NotificationManager.IMPORTANCE_LOW);
+            ch.setShowBadge(false);
+            nm.createNotificationChannel(ch);
+        }
+        PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        Notification n = new Notification.Builder(this, CH)
+                .setSmallIcon(android.R.drawable.stat_notify_chat)
+                .setContentTitle("Aasaas SMS waa shaqaynayaa ✅")
+                .setContentText("Fariimaha lacagta waxay si toos ah u aadayaan websaydka")
+                .setContentIntent(open)
+                .setOngoing(true)
+                .build();
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(7, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(7, n);
+            }
+        } catch (Exception e) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        handler.removeCallbacks(tick);
+        handler.postDelayed(tick, 60 * 1000L);
+        return START_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        handler.removeCallbacks(tick);
+        super.onDestroy();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/MainActivity.java
+package art.aasaastv.sms;
+
+import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.provider.Telephony;
+import android.text.InputType;
+import android.text.TextUtils;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.Switch;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+public class MainActivity extends Activity {
+
+    private static final int BG = Color.parseColor("#0E0F13");
+    private static final int CARD = Color.parseColor("#1A1C22");
+    private static final int LINE = Color.parseColor("#2A2D35");
+    private static final int RED = Color.parseColor("#E50914");
+    private static final int GREEN = Color.parseColor("#22C55E");
+    private static final int GOLD = Color.parseColor("#FFD166");
+    private static final int MUTED = Color.parseColor("#9AA0AA");
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private LinearLayout root;
+    private TextView status;
+    private TextView counts;
+    private LinearLayout list;
+    private EditText urlField;
+    private EditText sendersField;
+    private String lastListKey = "";
+
+    private final Runnable refresher = new Runnable() {
+        @Override
+        public void run() {
+            refresh();
+            handler.postDelayed(this, 3000);
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle b) {
+        super.onCreate(b);
+        getWindow().setStatusBarColor(BG);
+        getWindow().setNavigationBarColor(BG);
+        build();
+        askPermissions();
+        SendJob.schedulePeriodic(this);
+        KeepService.start(this);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        handler.post(refresher);
+    }
+
+    @Override
+    protected void onPause() {
+        handler.removeCallbacks(refresher);
+        super.onPause();
+    }
+
+    // ------------------------------------------------------------------ UI
+
+    private void build() {
+        ScrollView sv = new ScrollView(this);
+        sv.setBackgroundColor(BG);
+        sv.setFillViewport(true);
+        root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(16), dp(20), dp(16), dp(28));
+        sv.addView(root);
+        setContentView(sv);
+
+        TextView title = text("Aasaas SMS", 26, Color.WHITE, true);
+        root.addView(title);
+        TextView sub = text("Fariimaha lacagta (192, eDahab…) si toos ah ugu gudbi websaydka", 13, MUTED, false);
+        sub.setPadding(0, dp(2), 0, dp(14));
+        root.addView(sub);
+
+        // Status
+        LinearLayout st = card();
+        status = text("", 15, Color.WHITE, true);
+        st.addView(status);
+        counts = text("", 14, MUTED, false);
+        counts.setPadding(0, dp(6), 0, 0);
+        st.addView(counts);
+        root.addView(st);
+
+        // Link
+        LinearLayout lk = card();
+        lk.addView(label("🔗 Link-ga websaydka"));
+        lk.addView(text("Websaydka → Lacagaha EVC → koobi link-ga (MacroDroid box), halkan ku dheji.", 12, MUTED, false));
+        urlField = field(Forwarder.prefs(this).getString("url", Forwarder.DEFAULT_URL));
+        urlField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        lk.addView(urlField);
+        LinearLayout row = hrow();
+        row.addView(button("📋 Dheji", false, v -> paste()), weight());
+        row.addView(button("💾 Kaydi", true, v -> saveUrl()), weight());
+        lk.addView(row);
+        lk.addView(button("🔎 Tijaabi link-ga", false, v -> testLink()));
+        root.addView(lk);
+
+        // Actions
+        LinearLayout ac = card();
+        ac.addView(label("⚙️ Qalabka"));
+        ac.addView(button("📥 Soo dir lacagihii hore (3 maalmood)", false, v -> importOld()));
+        ac.addView(button("🔁 Dir mar kale kuwa khaldamay", false, v -> {
+            Db.get(this).retryAllFailed();
+            sendNow();
+        }));
+        ac.addView(button("🔋 Battery: ha xirin app-kan", false, v -> battery()));
+        Switch keep = new Switch(this);
+        keep.setText("Ogeysiis joogto ah (Infinix ha xirin)");
+        keep.setTextColor(Color.WHITE);
+        keep.setTextSize(14);
+        keep.setPadding(0, dp(10), 0, dp(4));
+        keep.setChecked(Forwarder.prefs(this).getBoolean("keep", true));
+        keep.setOnCheckedChangeListener((btn, on) -> {
+            Forwarder.prefs(this).edit().putBoolean("keep", on).apply();
+            if (on) {
+                KeepService.start(this);
+            } else {
+                KeepService.stop(this);
+            }
+        });
+        ac.addView(keep);
+        ac.addView(text("Diraha (bannaan = fariin kasta). Tusaale: 192, eDahab", 12, MUTED, false));
+        sendersField = field(Forwarder.prefs(this).getString("senders", ""));
+        sendersField.setHint("bannaan = dhammaan");
+        ac.addView(sendersField);
+        ac.addView(button("💾 Kaydi diraha", false, v -> {
+            Forwarder.prefs(this).edit().putString("senders", sendersField.getText().toString().trim()).apply();
+            toast("✅ La kaydiyay");
+        }));
+        root.addView(ac);
+
+        // Messages
+        TextView lt = label("📨 Fariimaha (u dambeeyay)");
+        lt.setPadding(dp(2), dp(10), 0, dp(6));
+        root.addView(lt);
+        list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        root.addView(list);
+    }
+
+    private void refresh() {
+        Db db = Db.get(this);
+        List<String> problems = new ArrayList<>();
+        if (!granted(Manifest.permission.RECEIVE_SMS)) {
+            problems.add("SMS ogolaansho ma haysto — taabo halkan");
+        }
+        if (!Forwarder.ready(this)) {
+            problems.add("Link-ga websaydka (key=) weli lama gelin");
+        }
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+            problems.add("Battery: taabo \"🔋 Battery\" si aan loo xirin");
+        }
+        if (problems.isEmpty()) {
+            status.setText("✅ Wax walba waa diyaar — SMS kasta wuu gudbayaa");
+            status.setTextColor(GREEN);
+            status.setOnClickListener(null);
+        } else {
+            status.setText("⚠️ " + TextUtils.join("\n⚠️ ", problems));
+            status.setTextColor(GOLD);
+            status.setOnClickListener(v -> askPermissions());
+        }
+        counts.setText("✅ La diray: " + db.count(Db.SENT) + "    ⏳ Sugaya: " + db.count(Db.PENDING)
+                + "    ❌ Khalad: " + db.count(Db.FAILED));
+
+        List<Db.Msg> msgs = db.recent(80);
+        StringBuilder key = new StringBuilder();
+        for (Db.Msg m : msgs) {
+            key.append(m.id).append(':').append(m.status).append(':').append(m.tries).append(',');
+        }
+        if (key.toString().equals(lastListKey)) {
+            return;
+        }
+        lastListKey = key.toString();
+        list.removeAllViews();
+        if (msgs.isEmpty()) {
+            list.addView(text("Weli fariin ma imaan. Marka SMS yimaado halkan ayuu ka muuqanayaa.", 13, MUTED, false));
+        }
+        SimpleDateFormat f = new SimpleDateFormat("dd/MM HH:mm:ss", Locale.US);
+        for (final Db.Msg m : msgs) {
+            LinearLayout c = card();
+            String icon = m.status == Db.SENT ? "✅ La diray" : m.status == Db.FAILED ? "❌ Khalad" : "⏳ Sugaya";
+            int col = m.status == Db.SENT ? GREEN : m.status == Db.FAILED ? RED : GOLD;
+            TextView h = text(icon + "   ·   " + m.sender + "   ·   " + f.format(new Date(m.ts)), 12, col, true);
+            c.addView(h);
+            TextView body = text(m.body, 14, Color.WHITE, false);
+            body.setMaxLines(4);
+            body.setEllipsize(TextUtils.TruncateAt.END);
+            body.setPadding(0, dp(4), 0, 0);
+            c.addView(body);
+            if (m.info != null && !m.info.isEmpty()) {
+                c.addView(text("Websaydka: " + m.info + (m.tries > 1 ? "  (isku day " + m.tries + ")" : ""), 11, MUTED, false));
+            }
+            c.setOnClickListener(v -> new AlertDialog.Builder(this)
+                    .setTitle(m.sender)
+                    .setMessage(m.body)
+                    .setPositiveButton("🔁 Dir mar kale", (d, w) -> {
+                        Db.get(this).retry(m.id);
+                        sendNow();
+                    })
+                    .setNegativeButton("📋 Koobi", (d, w) -> copy(m.body))
+                    .show());
+            list.addView(c);
+        }
+    }
+
+    // ------------------------------------------------------------------ actions
+
+    private void saveUrl() {
+        String u = urlField.getText().toString().trim().replace(" ", "");
+        Forwarder.prefs(this).edit().putString("url", u).apply();
+        if (!Forwarder.ready(this)) {
+            toast("⚠️ Link-ga waa inuu ku bilaabmaa https:// oo uu leeyahay key=…");
+            return;
+        }
+        toast("✅ La kaydiyay");
+        sendNow();
+    }
+
+    private void paste() {
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
+            CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(this);
+            if (t != null) {
+                urlField.setText(t.toString().trim());
+            }
+        }
+    }
+
+    private void copy(String s) {
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm != null) {
+            cm.setPrimaryClip(ClipData.newPlainText("sms", s));
+            toast("📋 La koobiyay");
+        }
+    }
+
+    private void testLink() {
+        saveUrlSilently();
+        if (!Forwarder.ready(this)) {
+            toast("⚠️ Marka hore geli link-ga oo leh key=");
+            return;
+        }
+        toast("⏳ Waa la tijaabinayaa…");
+        new Thread(() -> {
+            Forwarder.Result r = Forwarder.post(this, "TEST", "AASAAS SMS TEST (lacag ma aha)");
+            runOnUiThread(() -> new AlertDialog.Builder(this)
+                    .setTitle(r.ok ? "✅ Link-gu wuu shaqaynayaa" : "❌ Link-gu ma shaqaynayo")
+                    .setMessage(r.ok
+                            ? "Websaydka wuu helay. Fariimaha lacagta hadda si toos ah ayay u gudbayaan."
+                            : "Jawaabta: " + r.info + "\n\n403 = key-ga khaldan\n404 = plugin-ka EVC Pay ma shidna ama link-ga khaldan\ninternet ma jiro = hubi internetka")
+                    .setPositiveButton("OK", null)
+                    .show());
+        }).start();
+    }
+
+    private void saveUrlSilently() {
+        Forwarder.prefs(this).edit().putString("url", urlField.getText().toString().trim().replace(" ", "")).apply();
+    }
+
+    /** Re-sends payment SMS already in the phone's inbox (the website ignores ones it already has). */
+    private void importOld() {
+        if (!granted(Manifest.permission.READ_SMS)) {
+            askPermissions();
+            return;
+        }
+        new Thread(() -> {
+            int n = 0;
+            long since = System.currentTimeMillis() - 3L * 24 * 60 * 60 * 1000;
+            Cursor c = null;
+            try {
+                c = getContentResolver().query(Telephony.Sms.Inbox.CONTENT_URI,
+                        new String[]{Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE},
+                        Telephony.Sms.DATE + " > ?", new String[]{String.valueOf(since)}, Telephony.Sms.DATE + " ASC");
+                while (c != null && c.moveToNext()) {
+                    String from = c.getString(0);
+                    String body = c.getString(1);
+                    long ts = c.getLong(2);
+                    if (body == null || !looksLikePayment(body) || !Forwarder.wanted(this, from)) {
+                        continue;
+                    }
+                    if (Db.get(this).add(from == null ? "" : from, body, ts)) {
+                        n++;
+                    }
+                }
+            } catch (Exception ignored) {
+            } finally {
+                if (c != null) {
+                    c.close();
+                }
+            }
+            final int added = n;
+            runOnUiThread(() -> toast(added == 0 ? "Wax cusub lama helin" : "📥 " + added + " fariin ayaa la dirayaa"));
+            if (added > 0) {
+                SendJob.scheduleNow(this);
+                Forwarder.sendPending(this);
+            }
+        }).start();
+    }
+
+    /** Only money messages are re-sent from the inbox; personal SMS stay on the phone. */
+    private static boolean looksLikePayment(String body) {
+        String b = body.toLowerCase(Locale.ROOT);
+        return b.contains("heshay") || b.contains("received") || b.contains("kuu soo diray");
+    }
+
+    private void sendNow() {
+        SendJob.scheduleNow(this);
+        new Thread(() -> Forwarder.sendPending(this)).start();
+    }
+
+    private void battery() {
+        try {
+            Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            i.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(i);
+        } catch (Exception e) {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+        }
+    }
+
+    private void askPermissions() {
+        List<String> need = new ArrayList<>();
+        need.add(Manifest.permission.RECEIVE_SMS);
+        need.add(Manifest.permission.READ_SMS);
+        if (Build.VERSION.SDK_INT >= 33) {
+            need.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+        List<String> missing = new ArrayList<>();
+        for (String p : need) {
+            if (!granted(p)) {
+                missing.add(p);
+            }
+        }
+        if (missing.isEmpty()) {
+            return;
+        }
+        if (!shouldShowRequestPermissionRationale(Manifest.permission.RECEIVE_SMS) && asked()) {
+            // Refused before: open the app settings so the person can allow SMS by hand.
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        Forwarder.prefs(this).edit().putBoolean("asked", true).apply();
+        requestPermissions(missing.toArray(new String[0]), 1);
+    }
+
+    private boolean asked() {
+        return Forwarder.prefs(this).getBoolean("asked", false) && !granted(Manifest.permission.RECEIVE_SMS);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(code, perms, res);
+        KeepService.start(this);
+        lastListKey = "";
+        refresh();
+    }
+
+    private boolean granted(String p) {
+        return checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    // ------------------------------------------------------------------ small view helpers
+
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
+    }
+
+    private TextView text(String s, int sp, int color, boolean bold) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setTextSize(sp);
+        t.setTextColor(color);
+        if (bold) {
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+        }
+        return t;
+    }
+
+    private TextView label(String s) {
+        TextView t = text(s, 16, Color.WHITE, true);
+        t.setPadding(0, 0, 0, dp(4));
+        return t;
+    }
+
+    private LinearLayout card() {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setPadding(dp(14), dp(12), dp(14), dp(12));
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(CARD);
+        g.setCornerRadius(dp(14));
+        g.setStroke(dp(1), LINE);
+        c.setBackground(g);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = dp(10);
+        c.setLayoutParams(lp);
+        return c;
+    }
+
+    private LinearLayout hrow() {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        return r;
+    }
+
+    private LinearLayout.LayoutParams weight() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        lp.setMargins(dp(3), 0, dp(3), 0);
+        return lp;
+    }
+
+    private EditText field(String value) {
+        EditText e = new EditText(this);
+        e.setText(value);
+        e.setTextColor(Color.WHITE);
+        e.setHintTextColor(MUTED);
+        e.setTextSize(13);
+        e.setSingleLine(false);
+        e.setPadding(dp(12), dp(10), dp(12), dp(10));
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(BG);
+        g.setCornerRadius(dp(10));
+        g.setStroke(dp(1), LINE);
+        e.setBackground(g);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, dp(8), 0, dp(8));
+        e.setLayoutParams(lp);
+        return e;
+    }
+
+    private Button button(String s, boolean primary, View.OnClickListener l) {
+        Button b = new Button(this);
+        b.setText(s);
+        b.setAllCaps(false);
+        b.setTextColor(Color.WHITE);
+        b.setTextSize(14);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(primary ? RED : Color.parseColor("#262931"));
+        g.setCornerRadius(dp(12));
+        b.setBackground(g);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        lp.setMargins(0, dp(4), 0, dp(4));
+        b.setLayoutParams(lp);
+        b.setOnClickListener(l);
+        return b;
+    }
+
+    private void toast(String s) {
+        Toast.makeText(this, s, Toast.LENGTH_LONG).show();
+    }
+}
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/SendJob.java
+package art.aasaastv.sms;
+
+import android.app.job.JobInfo;
+import android.app.job.JobParameters;
+import android.app.job.JobScheduler;
+import android.app.job.JobService;
+import android.content.ComponentName;
+import android.content.Context;
+
+/** Retries messages that could not be sent (no internet, site down) as soon as the phone is online again. */
+public class SendJob extends JobService {
+
+    private static final int NOW_ID = 1;
+    private static final int PERIODIC_ID = 2;
+
+    public static void scheduleNow(Context c) {
+        JobScheduler js = (JobScheduler) c.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+        if (js == null) {
+            return;
+        }
+        js.schedule(new JobInfo.Builder(NOW_ID, new ComponentName(c, SendJob.class))
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setBackoffCriteria(30_000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
+                .setPersisted(true)
+                .build());
+    }
+
+    /** A check every 15 minutes, in case something was missed. */
+    public static void schedulePeriodic(Context c) {
+        JobScheduler js = (JobScheduler) c.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+        if (js == null) {
+            return;
+        }
+        js.schedule(new JobInfo.Builder(PERIODIC_ID, new ComponentName(c, SendJob.class))
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setPeriodic(15 * 60 * 1000L)
+                .setPersisted(true)
+                .build());
+    }
+
+    @Override
+    public boolean onStartJob(final JobParameters params) {
+        final Context app = getApplicationContext();
+        new Thread(() -> {
+            int left = Forwarder.sendPending(app);
+            // Ask Android to run again (with back-off) if some messages are still waiting.
+            jobFinished(params, left > 0 && params.getJobId() == NOW_ID && Forwarder.ready(app));
+        }).start();
+        return true;
+    }
+
+    @Override
+    public boolean onStopJob(JobParameters params) {
+        return true;
+    }
+}
+@@@FILE AasaasSMS/app/src/main/java/art/aasaastv/sms/SmsReceiver.java
+package art.aasaastv.sms;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.provider.Telephony;
+import android.telephony.SmsMessage;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/** Runs for every incoming SMS (even when the app is closed): store it, then send it to the website. */
+public class SmsReceiver extends BroadcastReceiver {
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (!Telephony.Sms.Intents.SMS_RECEIVED_ACTION.equals(intent.getAction())) {
+            return;
+        }
+        SmsMessage[] parts = Telephony.Sms.Intents.getMessagesFromIntent(intent);
+        if (parts == null || parts.length == 0) {
+            return;
+        }
+        // Long SMS arrive in several parts: join them per sender.
+        Map<String, StringBuilder> bodies = new LinkedHashMap<>();
+        Map<String, Long> times = new LinkedHashMap<>();
+        for (SmsMessage p : parts) {
+            if (p == null) {
+                continue;
+            }
+            String from = p.getDisplayOriginatingAddress();
+            if (from == null) {
+                from = "";
+            }
+            StringBuilder sb = bodies.get(from);
+            if (sb == null) {
+                sb = new StringBuilder();
+                bodies.put(from, sb);
+                times.put(from, p.getTimestampMillis() > 0 ? p.getTimestampMillis() : System.currentTimeMillis());
+            }
+            String b = p.getDisplayMessageBody();
+            if (b != null) {
+                sb.append(b);
+            }
+        }
+        final Context app = context.getApplicationContext();
+        boolean added = false;
+        for (Map.Entry<String, StringBuilder> e : bodies.entrySet()) {
+            if (Forwarder.wanted(app, e.getKey())) {
+                added |= Db.get(app).add(e.getKey(), e.getValue().toString(), times.get(e.getKey()));
+            }
+        }
+        if (!added) {
+            return;
+        }
+        SendJob.scheduleNow(app);
+        final PendingResult pr = goAsync();
+        new Thread(() -> {
+            try {
+                Forwarder.sendPending(app);
+            } finally {
+                pr.finish();
+            }
+        }).start();
+    }
+}
+@@@FILE AasaasSMS/app/src/main/res/values/strings.xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aasaas SMS</string>
+</resources>
+@@@FILE AasaasSMS/app/src/main/res/drawable/ic_launcher.xml
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#E50914" android:pathData="M54,4a50,50 0,1 1,0 100a50,50 0,1 1,0 -100z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M28,34h52a6,6 0,0 1,6 6v28a6,6 0,0 1,-6 6H50l-12,10v-10h-10a6,6 0,0 1,-6 -6V40a6,6 0,0 1,6 -6z" />
+    <path android:fillColor="#E50914" android:pathData="M40,48h28v4H40zM40,58h20v4H40z" />
+    <path android:fillColor="#22C55E" android:pathData="M74,58l10,8l-10,8z" />
+</vector>
+@@@FILE AasaasSMS/gradle/wrapper/gradle-wrapper.properties
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
