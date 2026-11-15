@@ -71,8 +71,8 @@ android {
         applicationId 'art.aasaastv.sms'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode 2
+        versionName '1.1'
     }
 
     buildTypes {
@@ -457,6 +457,8 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.provider.Telephony;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
@@ -471,6 +473,7 @@ public class KeepService extends Service {
 
     private static final String CH = "keep";
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private SmsReceiver live;
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
@@ -522,6 +525,22 @@ public class KeepService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        // Listen for SMS from inside this always-running service too: phones like Infinix/Tecno
+        // block the manifest receiver of apps without "Auto-start", but not a live one.
+        if (live == null) {
+            live = new SmsReceiver();
+            IntentFilter f = new IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION);
+            f.setPriority(999);
+            try {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    registerReceiver(live, f, "android.permission.BROADCAST_SMS", null, Context.RECEIVER_EXPORTED);
+                } else {
+                    registerReceiver(live, f, "android.permission.BROADCAST_SMS", null);
+                }
+            } catch (Exception e) {
+                live = null;
+            }
+        }
         handler.removeCallbacks(tick);
         handler.postDelayed(tick, 60 * 1000L);
         return START_STICKY;
@@ -530,6 +549,13 @@ public class KeepService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacks(tick);
+        if (live != null) {
+            try {
+                unregisterReceiver(live);
+            } catch (Exception ignored) {
+            }
+            live = null;
+        }
         super.onDestroy();
     }
 
@@ -638,7 +664,7 @@ public class MainActivity extends Activity {
         sv.setFillViewport(true);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(20), dp(16), dp(28));
+        root.setPadding(dp(16), dp(48), dp(16), dp(28));
         sv.addView(root);
         setContentView(sv);
 
@@ -680,6 +706,8 @@ public class MainActivity extends Activity {
             sendNow();
         }));
         ac.addView(button("🔋 Battery: ha xirin app-kan", false, v -> battery()));
+        ac.addView(button("🚀 Auto-start (Infinix): shid", false, v -> startActivity(
+                new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())))));
         Switch keep = new Switch(this);
         keep.setText("Ogeysiis joogto ah (Infinix ha xirin)");
         keep.setTextColor(Color.WHITE);
@@ -736,8 +764,11 @@ public class MainActivity extends Activity {
             status.setTextColor(GOLD);
             status.setOnClickListener(v -> askPermissions());
         }
+        long rx = Forwarder.prefs(this).getLong("last_rx", 0);
+        String rxs = rx == 0 ? "\n📶 Weli SMS cusub lama qaban (sug SMS-ka xiga)"
+                : "\n📶 SMS-kii u dambeeyay ee la qabtay: " + new SimpleDateFormat("dd/MM HH:mm:ss", Locale.US).format(new Date(rx));
         counts.setText("✅ La diray: " + db.count(Db.SENT) + "    ⏳ Sugaya: " + db.count(Db.PENDING)
-                + "    ❌ Khalad: " + db.count(Db.FAILED));
+                + "    ❌ Khalad: " + db.count(Db.FAILED) + rxs);
 
         List<Db.Msg> msgs = db.recent(80);
         StringBuilder key = new StringBuilder();
@@ -1132,6 +1163,7 @@ public class SmsReceiver extends BroadcastReceiver {
             }
         }
         final Context app = context.getApplicationContext();
+        Forwarder.prefs(app).edit().putLong("last_rx", System.currentTimeMillis()).apply();
         boolean added = false;
         for (Map.Entry<String, StringBuilder> e : bodies.entrySet()) {
             if (Forwarder.wanted(app, e.getKey())) {
